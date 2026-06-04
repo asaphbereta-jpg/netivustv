@@ -1,7 +1,7 @@
 {
-  "name": "cyber-iptv-system",
+  "name": "netivustv",
   "version": "1.0.0",
-  "description": "",
+  "description": "Cyber IPTV System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
