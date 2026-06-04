@@ -38,6 +38,7 @@
         .login-option input { width: 100%; margin-bottom: 10px; }
         .login-option button { width: 100%; }
         .divider { color: var(--yellow); margin: 20px 0; font-size: 12px; }
+        #error-msg { color: var(--red); margin-top: 15px; font-size: 13px; display: none; }
 
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--dark); }
@@ -68,6 +69,7 @@
         <div id="loading" class="hidden" style="margin-top: 20px; color: var(--yellow);">
             ⏳ Carregando lista...
         </div>
+        <div id="error-msg"></div>
     </div>
 
     <div id="app-screen">
@@ -96,13 +98,6 @@
         let channels = [];
         let filteredChannels = [];
 
-        // Carrega automaticamente ao abrir a página
-        window.onload = function() {
-            setTimeout(() => {
-                loadFromUrl();
-            }, 500);
-        };
-
         async function loadFromUrl() {
             const url = document.getElementById('m3uUrl').value.trim();
             if (!url) {
@@ -111,19 +106,43 @@
             }
 
             document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('error-msg').style.display = 'none';
             
             try {
+                // Testa se o servidor está respondendo
+                const testResponse = await fetch('/test');
+                if (!testResponse.ok) {
+                    throw new Error('Servidor não está respondendo. Aguarde o deploy completar.');
+                }
+                
                 const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
+                console.log('Tentando carregar:', proxyUrl);
+                
                 const response = await fetch(proxyUrl);
                 
-                if (!response.ok) throw new Error('Falha ao carregar lista');
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
                 
                 const text = await response.text();
+                
+                if (!text.trim()) {
+                    throw new Error('Lista vazia ou inválida');
+                }
+                
                 processPlaylist(text);
                 
             } catch (error) {
-                alert('❌ Erro ao carregar lista: ' + error.message);
-                console.error(error);
+                console.error('Erro:', error);
+                const errorMsg = document.getElementById('error-msg');
+                errorMsg.textContent = `❌ Erro: ${error.message}`;
+                errorMsg.style.display = 'block';
+                
+                if (error.message.includes('Servidor não está respondendo')) {
+                    errorMsg.innerHTML += '<br><br>💡 O servidor ainda está iniciando. Aguarde 2-3 minutos e tente novamente.';
+                }
+            } finally {
                 document.getElementById('loading').classList.add('hidden');
             }
         }
@@ -159,14 +178,12 @@
             
             if (channels.length === 0) {
                 alert('⚠️ Nenhum canal encontrado na lista!');
-                document.getElementById('loading').classList.add('hidden');
                 return;
             }
             
             filteredChannels = [...channels];
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-screen').style.display = 'flex';
-            document.getElementById('loading').classList.add('hidden');
             renderChannels();
         }
 
