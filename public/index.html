@@ -84,7 +84,7 @@
             <div id="channel-list"></div>
         </div>
         <div id="main-content">
-            <video id="videoPlayer" controls autoplay playsinline></video>
+            <video id="videoPlayer" controls playsinline></video>
             <div id="controls">
                 <div class="controls-row">
                     <span id="current-channel" style="font-weight: bold;">⏸ AGUARDANDO</span>
@@ -97,6 +97,7 @@
     <script>
         let channels = [];
         let filteredChannels = [];
+        let currentHls = null;
 
         async function loadFromUrl() {
             const url = document.getElementById('m3uUrl').value.trim();
@@ -109,14 +110,8 @@
             document.getElementById('error-msg').style.display = 'none';
             
             try {
-                // Testa se o servidor está respondendo
-                const testResponse = await fetch('/test');
-                if (!testResponse.ok) {
-                    throw new Error('Servidor não está respondendo. Aguarde o deploy completar.');
-                }
-                
                 const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
-                console.log('Tentando carregar:', proxyUrl);
+                console.log('Carregando:', proxyUrl);
                 
                 const response = await fetch(proxyUrl);
                 
@@ -138,10 +133,6 @@
                 const errorMsg = document.getElementById('error-msg');
                 errorMsg.textContent = `❌ Erro: ${error.message}`;
                 errorMsg.style.display = 'block';
-                
-                if (error.message.includes('Servidor não está respondendo')) {
-                    errorMsg.innerHTML += '<br><br>💡 O servidor ainda está iniciando. Aguarde 2-3 minutos e tente novamente.';
-                }
             } finally {
                 document.getElementById('loading').classList.add('hidden');
             }
@@ -212,26 +203,50 @@
             const player = document.getElementById('videoPlayer');
             const proxyUrl = `/proxy?url=${encodeURIComponent(channel.url)}`;
 
-            if (window.currentHls) {
-                window.currentHls.destroy();
-                window.currentHls = null;
+            // Destroi instância anterior
+            if (currentHls) {
+                currentHls.destroy();
+                currentHls = null;
             }
 
             document.getElementById('current-channel').textContent = `▶ CARREGANDO: ${channel.name}...`;
+            console.log('Tentando reproduzir:', channel.name, 'URL:', proxyUrl);
 
-            if (Hls.isSupported() && (channel.url.includes('.m3u8') || proxyUrl.includes('.m3u8'))) {
-                const hls = new Hls();
-                window.currentHls = hls;
+            // Usa HLS.js para streams .m3u8
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    debug: false,
+                    enableWorker: true,
+                    lowLatencyMode: true
+                });
+                currentHls = hls;
+                
                 hls.loadSource(proxyUrl);
                 hls.attachMedia(player);
+                
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    player.play().catch(e => console.log('Autoplay bloqueado'));
+                    console.log('✅ Manifest parsed, tentando play...');
+                    player.play().catch(e => {
+                        console.error('Autoplay bloqueado:', e);
+                        document.getElementById('current-channel').textContent = `⏸ ${channel.name} (clique play)`;
+                    });
                     document.getElementById('current-channel').textContent = `▶ REPRODUZINDO: ${channel.name}`;
                 });
-                hls.on(Hls.Events.ERROR, (e, data) => {
-                    if (data.fatal) document.getElementById('current-channel').textContent = `❌ FALHA: ${channel.name}`;
+                
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    console.error('HLS Error:', data);
+                    if (data.fatal) {
+                        document.getElementById('current-channel').textContent = `❌ FALHA: ${channel.name}`;
+                        console.error('Erro fatal:', data.type, data.details);
+                    }
                 });
+            } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari nativo
+                player.src = proxyUrl;
+                player.play();
+                document.getElementById('current-channel').textContent = `▶ REPRODUZINDO: ${channel.name}`;
             } else {
+                // Outros formatos
                 player.src = proxyUrl;
                 player.play();
                 document.getElementById('current-channel').textContent = `▶ REPRODUZINDO: ${channel.name}`;
