@@ -22,28 +22,19 @@ app.get('/proxy', async (req, res) => {
     try {
         console.log(`🔄 Proxy: ${targetUrl}`);
         
-        // Headers mais realistas para evitar bloqueio
         const response = await axios.get(targetUrl, {
             responseType: 'stream',
             timeout: 30000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/vnd.apple.mpegurl, application/octet-stream, */*',
+                'Accept': '*/*',
                 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'DNT': '1',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'cross-site',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Referer': new URL(targetUrl).origin,
+                'Origin': new URL(targetUrl).origin
             },
-            maxRedirects: 5,
-            validateStatus: (status) => status < 500
+            maxRedirects: 10
         });
 
-        // Verifica se é realmente uma playlist M3U
         const contentType = response.headers['content-type'] || '';
         const isM3U = contentType.includes('mpegurl') || 
                       contentType.includes('x-mpegurl') ||
@@ -54,30 +45,30 @@ app.get('/proxy', async (req, res) => {
             let body = '';
             response.data.on('data', chunk => body += chunk);
             response.data.on('end', () => {
-                // Verifica se é uma playlist válida
-                if (body.includes('#EXTM3U') || body.includes('#EXTINF')) {
-                    console.log(`✅ Playlist válida carregada (${body.length} bytes)`);
-                    
-                    // Reescreve URLs para passar pelo proxy
-                    const baseUrl = new URL(targetUrl).origin;
-                    const rewritten = body.replace(/^(https?:\/\/[^\s]+)$/gm, (match) => {
-                        if (match.includes('get.php') || match.includes('.m3u8') || match.includes('.ts')) {
-                            return `/proxy?url=${encodeURIComponent(match)}`;
-                        }
-                        return match;
+                console.log(`📝 Playlist recebida: ${body.length} bytes`);
+                
+                // Reescreve TODAS as URLs absolutas e relativas
+                const baseUrl = new URL(targetUrl).origin;
+                const basePath = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+                
+                const rewritten = body
+                    // URLs absolutas
+                    .replace(/^(https?:\/\/[^\s]+)$/gm, (match) => {
+                        return `/proxy?url=${encodeURIComponent(match)}`;
+                    })
+                    // URLs relativas com caminho
+                    .replace(/^([A-Za-z0-9_\-\/]+\.(m3u8|ts|mp4|aac|mp3))$/gm, (match) => {
+                        return `/proxy?url=${encodeURIComponent(basePath + match)}`;
+                    })
+                    // URLs relativas simples
+                    .replace(/^([A-Za-z0-9_\-]+\.(m3u8|ts|mp4|aac|mp3))$/gm, (match) => {
+                        return `/proxy?url=${encodeURIComponent(baseUrl + '/' + match)}`;
                     });
-                    
-                    res.set('Content-Type', 'application/vnd.apple.mpegurl');
-                    res.set('Access-Control-Allow-Origin', '*');
-                    res.send(rewritten);
-                } else {
-                    console.error('❌ Resposta inválida - não é uma playlist M3U');
-                    console.error('Primeiros 500 chars:', body.substring(0, 500));
-                    res.status(500).json({ 
-                        error: 'Resposta inválida do servidor',
-                        message: 'O provedor bloqueou a requisição ou retornou conteúdo inválido'
-                    });
-                }
+                
+                console.log(`✅ Playlist reescrita enviada`);
+                res.set('Content-Type', 'application/vnd.apple.mpegurl');
+                res.set('Access-Control-Allow-Origin', '*');
+                res.send(rewritten);
             });
         } else {
             console.log(`📹 Stream direto: ${contentType}`);
@@ -100,5 +91,5 @@ app.get('/test', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 CyberIPTV Server rodando na porta ${PORT}`);
+    console.log(` CyberIPTV Server rodando na porta ${PORT}`);
 });
