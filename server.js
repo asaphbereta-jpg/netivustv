@@ -1,95 +1,145 @@
+/**
+ * ============================================================
+ *  IPTV CYBER WEBAPP - Servidor Node.js
+ *  Proxy CORS + Servidor Estático
+ *  Autor: Asaph | Tema: Cyberpunk/Futurista
+ * ============================================================
+ */
+
 const express = require('express');
-const axios = require('axios');
+const cors = require('cors');
+const fetch = require('node-fetch');
+const compression = require('compression');
 const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', '*');
-    next();
-});
+// URL padrão da playlist M3U
+const DEFAULT_PLAYLIST_URL =
+  'http://vivotv.site/get.php?username=Cervera2028&password=Cervera2028&type=m3u_plus';
 
+// Middlewares globais
+app.use(cors());
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Servir arquivos estáticos (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/proxy', async (req, res) => {
-    const targetUrl = req.query.url;
-    
-    if (!targetUrl) {
-        return res.status(400).json({ error: 'URL ausente' });
+/**
+ * ============================================================
+ *  ENDPOINT: Proxy da Playlist M3U
+ *  Evita bloqueios de CORS no navegador
+ * ============================================================
+ */
+app.get('/api/playlist', async (req, res) => {
+  try {
+    console.log('[PROXY] Buscando playlist M3U...');
+
+    const response = await fetch(DEFAULT_PLAYLIST_URL, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (SmartTV; Tizen) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.31 Safari/537.36',
+        Accept: '*/*',
+      },
+      timeout: 30000,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
     }
 
-    try {
-        console.log(`🔄 Proxy: ${targetUrl}`);
-        
-        const response = await axios.get(targetUrl, {
-            responseType: 'stream',
-            timeout: 30000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-                'Referer': new URL(targetUrl).origin,
-                'Origin': new URL(targetUrl).origin
-            },
-            maxRedirects: 10
-        });
+    const data = await response.text();
+    console.log('[PROXY] Playlist carregada com sucesso.');
 
-        const contentType = response.headers['content-type'] || '';
-        const isM3U = contentType.includes('mpegurl') || 
-                      contentType.includes('x-mpegurl') ||
-                      targetUrl.includes('.m3u') ||
-                      targetUrl.includes('type=m3u');
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300'); // Cache 5 min
+    res.send(data);
+  } catch (error) {
+    console.error('[PROXY] Erro ao buscar playlist:', error.message);
+    res.status(502).json({
+      error: 'Falha ao carregar a playlist.',
+      details: error.message,
+    });
+  }
+});
 
-        if (isM3U) {
-            let body = '';
-            response.data.on('data', chunk => body += chunk);
-            response.data.on('end', () => {
-                console.log(`📝 Playlist recebida: ${body.length} bytes`);
-                
-                // Reescreve TODAS as URLs absolutas e relativas
-                const baseUrl = new URL(targetUrl).origin;
-                const basePath = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-                
-                const rewritten = body
-                    // URLs absolutas
-                    .replace(/^(https?:\/\/[^\s]+)$/gm, (match) => {
-                        return `/proxy?url=${encodeURIComponent(match)}`;
-                    })
-                    // URLs relativas com caminho
-                    .replace(/^([A-Za-z0-9_\-\/]+\.(m3u8|ts|mp4|aac|mp3))$/gm, (match) => {
-                        return `/proxy?url=${encodeURIComponent(basePath + match)}`;
-                    })
-                    // URLs relativas simples
-                    .replace(/^([A-Za-z0-9_\-]+\.(m3u8|ts|mp4|aac|mp3))$/gm, (match) => {
-                        return `/proxy?url=${encodeURIComponent(baseUrl + '/' + match)}`;
-                    });
-                
-                console.log(`✅ Playlist reescrita enviada`);
-                res.set('Content-Type', 'application/vnd.apple.mpegurl');
-                res.set('Access-Control-Allow-Origin', '*');
-                res.send(rewritten);
-            });
-        } else {
-            console.log(`📹 Stream direto: ${contentType}`);
-            res.set('Content-Type', contentType);
-            res.set('Access-Control-Allow-Origin', '*');
-            response.data.pipe(res);
-        }
-        
-    } catch (error) {
-        console.error('❌ Proxy error:', error.message);
-        res.status(500).json({ 
-            error: 'Falha ao carregar',
-            message: error.message 
-        });
+/**
+ * ============================================================
+ *  ENDPOINT: Proxy Genérico para Streams/Imagens
+ *  Permite contornar CORS em logos e streams
+ * ============================================================
+ */
+app.get('/api/proxy', async (req, res) => {
+  const targetUrl = req.query.url;
+
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'Parâmetro "url" é obrigatório.' });
+  }
+
+  try {
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (SmartTV; Tizen) AppleWebKit/537.36',
+        Referer: targetUrl,
+      },
+      timeout: 20000,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Status: ${response.status}`);
     }
+
+    // Encaminha headers relevantes
+    const contentType = response.headers.get('content-type');
+    if (contentType) res.setHeader('Content-Type', contentType);
+
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    response.body.pipe(res);
+  } catch (error) {
+    console.error('[PROXY] Erro no proxy genérico:', error.message);
+    res.status(502).json({ error: 'Falha no proxy.', details: error.message });
+  }
 });
 
-app.get('/test', (req, res) => {
-    res.json({ status: 'OK', message: 'Servidor rodando!' });
+/**
+ * ============================================================
+ *  ENDPOINT: Health Check
+ * ============================================================
+ */
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'online',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    playlist: DEFAULT_PLAYLIST_URL,
+  });
 });
 
+/**
+ * ============================================================
+ *  FALLBACK: SPA - Redireciona tudo para index.html
+ * ============================================================
+ */
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+/**
+ * ============================================================
+ *  START SERVER
+ * ============================================================
+ */
 app.listen(PORT, () => {
-    console.log(` CyberIPTV Server rodando na porta ${PORT}`);
+  console.log(`
+  ╔════════════════════════════════════════════════════╗
+  ║   🚀 IPTV CYBER WEBAPP - Servidor Online         ║
+  ║   🌐 Porta: ${PORT}                                 ║
+  ║   📡 URL:   http://localhost:${PORT}                ║
+  ║   🎨 Tema:  Cyberpunk/Futurista                  ║
+  ╚════════════════════════════════════════════════════╝
+  `);
 });
