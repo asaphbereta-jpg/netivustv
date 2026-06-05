@@ -1,13 +1,13 @@
 {
   "name": "iptv-cyber-webapp",
-  "version": "1.0.0",
-  "description": "WebApp IPTV Cyberpunk/Futurista com proxy CORS",
+  "version": "1.1.0",
+  "description": "IPTV WebApp Cyberpunk com Proxy SSL",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
-  "keywords": ["iptv", "m3u", "cyberpunk", "hls"],
+  "keywords": ["iptv", "m3u", "cyberpunk", "hls", "vlc"],
   "author": "Asaph",
   "license": "MIT",
   "dependencies": {
@@ -20,6 +20,6 @@
     "nodemon": "^3.1.0"
   },
   "engines": {
-    "node": ">=18.x"
+    "node": ">=16.x"
   }
 }
