@@ -1,351 +1,74 @@
-:root {
-    --bg-dark: #050609;
-    --bg-panel: #0b0e14;
-    --bg-card: #101524;
-    --cyber-cyan: #00f0ff;
-    --cyber-magenta: #ff0055;
-    --cyber-yellow: #fcee0a;
-    --text-color: #c3cbdb;
-}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NETIVUS TV // CYBER STREAMING MATRIX</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.min.js"></script>
+</head>
+<body>
 
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: 'Courier New', Courier, monospace;
-}
+    <div id="login-screen" class="screen active">
+        <div class="cyber-box">
+            <h1 class="glitch-text" data-text="NETIVUS TV">NETIVUS<span>TV</span></h1>
+            <p class="system-status">> COGNITIVE INTERFACE ONLINE // SELECT ACCESS METHOD</p>
+            
+            <button id="btn-connect-local" class="cyber-btn local-btn" tabindex="0">CONECTAR LISTA (LOCAL TXT)</button>
+            
+            <div class="separator">// OU COLOGUE UMA URL EXTERNA //</div>
 
-body {
-    background-color: var(--bg-dark);
-    color: var(--text-color);
-    overflow: hidden;
-    height: 100vh;
-}
+            <input type="text" id="m3u-input" placeholder="URL DA LISTA M3U (HTTP://...)" tabindex="0">
+            <button id="btn-connect-web" class="cyber-btn web-btn" tabindex="0">CONECTAR FLUXO WEB</button>
 
-.screen {
-    display: none;
-    height: 100vh;
-    width: 100vw;
-    position: absolute;
-    top: 0;
-    left: 0;
-}
+            <div class="saved-lists-container">
+                <h3>📂 TERMINAIS DE MEMÓRIA (LINKS SALVOS)</h3>
+                <div id="saved-lists" class="saved-lists-grid">
+                    </div>
+            </div>
+        </div>
+    </div>
 
-.screen.active {
-    display: flex;
-}
+    <div id="loader-screen" class="screen">
+        <div class="loader-box">
+            <div class="cyber-spinner"></div>
+            <h2 class="neon-text-cyan">> SINCRONIZANDO BANCO DE DADOS...</h2>
+            <p id="loader-status">BAIXANDO E SEPARANDO MATRIZ COMPLETA</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill"></div>
+            </div>
+        </div>
+    </div>
 
-/* 1. TELA DE LOGIN & HISTÓRICO */
-#login-screen {
-    justify-content: center;
-    align-items: center;
-    background: radial-gradient(circle, #0e1326 0%, #050609 100%);
-    overflow-y: auto;
-    padding: 20px;
-}
+    <div id="main-screen" class="screen">
+        <div class="sidebar">
+            <div class="logo-area">NETIVUS<span>TV</span></div>
+            <div class="menu-items">
+                <div class="menu-item active" data-type="canais" tabindex="0">📺 CANAIS TV</div>
+                <div class="menu-item" data-type="filmes" tabindex="0">🎬 FILMES</div>
+                <div class="menu-item" data-type="series" tabindex="0">🍿 SÉRIES</div>
+                <div class="menu-item" id="btn-disconnect" style="color: var(--cyber-magenta);" tabindex="0">🔌 DESCONECTAR</div>
+            </div>
+        </div>
 
-.cyber-box {
-    background: var(--bg-panel);
-    padding: 40px;
-    border: 2px solid var(--cyber-cyan);
-    box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
-    text-align: center;
-    width: 100%;
-    max-width: 650px;
-    border-radius: 8px;
-    position: relative;
-}
+        <div class="main-content">
+            <div class="search-box-container">
+                <span class="search-icon">> SEARCH_</span>
+                <input type="text" id="search-input" placeholder="DIGITE O NOME DO CANAL, FILME OU SÉRIE..." tabindex="0">
+            </div>
 
-.glitch-text {
-    font-size: 3.5rem;
-    color: #fff;
-    text-shadow: 0 0 10px var(--cyber-cyan);
-    margin-bottom: 5px;
-    letter-spacing: 2px;
-}
+            <div id="category-title" class="section-title">CANAIS DE TV</div>
+            <div id="grid-conteudo" class="grid-container">
+                </div>
+        </div>
+    </div>
 
-.glitch-text span {
-    color: var(--cyber-magenta);
-    text-shadow: 0 0 10px var(--cyber-magenta);
-}
+    <div id="player-screen" class="screen">
+        <video id="video-player" autoplay playsinline></video>
+        <div class="player-back-tip">Pressione [VOLTAR] ou [ESC] para fechar o canal</div>
+    </div>
 
-.system-status {
-    color: var(--cyber-yellow);
-    font-size: 0.75rem;
-    margin-bottom: 30px;
-}
-
-#m3u-input {
-    width: 100%;
-    padding: 15px;
-    background: #030407;
-    border: 1px solid var(--cyber-cyan);
-    color: #fff;
-    margin-bottom: 20px;
-    outline: none;
-    font-size: 1rem;
-}
-
-#m3u-input:focus {
-    border-color: var(--cyber-magenta);
-    box-shadow: 0 0 10px var(--cyber-magenta);
-}
-
-.cyber-btn {
-    background: transparent;
-    color: var(--cyber-cyan);
-    border: 2px solid var(--cyber-cyan);
-    padding: 15px 30px;
-    cursor: pointer;
-    font-weight: bold;
-    width: 100%;
-    transition: all 0.2s;
-    font-size: 1.1rem;
-}
-
-.cyber-btn:focus, .cyber-btn:hover {
-    background: var(--cyber-cyan);
-    color: #000;
-    box-shadow: 0 0 15px var(--cyber-cyan);
-}
-
-/* LISTAS SALVAS */
-.saved-lists-container {
-    margin-top: 35px;
-    text-align: left;
-    border-top: 1px dashed #202b42;
-    padding-top: 20px;
-}
-
-.saved-lists-container h3 {
-    font-size: 0.9rem;
-    color: var(--cyber-yellow);
-    margin-bottom: 15px;
-}
-
-.saved-lists-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.list-item-btn {
-    background: #101524;
-    border: 1px solid #202b42;
-    color: #fff;
-    padding: 12px;
-    text-align: left;
-    cursor: pointer;
-    font-size: 0.85rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    outline: none;
-    width: 100%;
-}
-
-.list-item-btn:focus, .list-item-btn:hover {
-    border-color: var(--cyber-magenta);
-    background: rgba(255, 0, 85, 0.1);
-    color: var(--cyber-magenta);
-}
-
-/* 2. LOADER DE ENTRADA */
-#loader-screen {
-    justify-content: center;
-    align-items: center;
-    background: #050609;
-}
-
-.loader-box {
-    text-align: center;
-}
-
-.cyber-spinner {
-    width: 70px;
-    height: 70px;
-    border: 5px solid rgba(0, 240, 255, 0.1);
-    border-left-color: var(--cyber-cyan);
-    border-right-color: var(--cyber-magenta);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 25px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.progress-bar-container {
-    width: 300px;
-    height: 6px;
-    background: #101524;
-    margin: 20px auto 0;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid #202b42;
-}
-
-.progress-bar-fill {
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, var(--cyber-cyan), var(--cyber-magenta));
-    animation: loadingAnimation 2s infinite ease-in-out;
-}
-
-@keyframes loadingAnimation {
-    0% { transform: translateX(-100%); }
-    50% { transform: translateX(0); }
-    100% { transform: translateX(100%); }
-}
-
-/* 3. INTERFACE PRINCIPAL */
-#main-screen {
-    flex-direction: row;
-}
-
-.sidebar {
-    width: 22vw;
-    background: var(--bg-panel);
-    border-right: 2px solid #161c2e;
-    display: flex;
-    flex-direction: column;
-}
-
-.logo-area {
-    padding: 25px;
-    font-size: 1.8rem;
-    font-weight: bold;
-    color: var(--cyber-cyan);
-    text-shadow: 0 0 5px var(--cyber-cyan);
-    border-bottom: 2px solid #161c2e;
-    text-align: center;
-}
-
-.logo-area span { color: var(--cyber-magenta); }
-
-.menu-items { margin-top: 15px; }
-
-.menu-item {
-    padding: 18px 25px;
-    cursor: pointer;
-    border-left: 4px solid transparent;
-    outline: none;
-    font-weight: bold;
-    font-size: 1rem;
-}
-
-.menu-item.active, .menu-item:focus {
-    background: rgba(0, 240, 255, 0.04);
-    border-left-color: var(--cyber-cyan);
-    color: var(--cyber-cyan);
-}
-
-.main-content {
-    width: 78vw;
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-}
-
-/* BARRA DE PESQUISA */
-.search-box-container {
-    display: flex;
-    align-items: center;
-    background: var(--bg-panel);
-    border: 1px solid #161c2e;
-    padding: 12px 20px;
-    margin-bottom: 25px;
-}
-
-.search-box-container:focus-within {
-    border-color: var(--cyber-cyan);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-}
-
-.search-icon {
-    color: var(--cyber-yellow);
-    font-weight: bold;
-    margin-right: 15px;
-}
-
-#search-input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: #fff;
-    width: 100%;
-    font-size: 1rem;
-}
-
-.section-title {
-    font-size: 1.6rem;
-    color: var(--cyber-magenta);
-    margin-bottom: 20px;
-    text-shadow: 0 0 5px var(--cyber-magenta);
-}
-
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 15px;
-    overflow-y: auto;
-    height: 100%;
-    padding-bottom: 30px;
-}
-
-/* CARDS DE MÍDIA */
-.media-card {
-    background: var(--bg-card);
-    border: 1px solid #161c2e;
-    padding: 12px;
-    text-align: center;
-    cursor: pointer;
-    outline: none;
-    transition: all 0.2s;
-}
-
-.media-card:focus {
-    border-color: var(--cyber-yellow);
-    box-shadow: 0 0 12px rgba(252, 238, 10, 0.3);
-    transform: scale(1.04);
-}
-
-.media-card img {
-    width: 100%;
-    height: 110px;
-    object-fit: contain;
-    background: #050609;
-    margin-bottom: 8px;
-}
-
-.media-card p {
-    font-size: 0.85rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: #fff;
-}
-
-/* 4. PLAYER DE VÍDEO */
-#player-screen {
-    background: #000;
-}
-#video-player {
-    width: 100vw;
-    height: 100vh;
-}
-.player-back-tip {
-    position: absolute;
-    top: 25px;
-    left: 25px;
-    background: rgba(5, 6, 9, 0.85);
-    padding: 10px 15px;
-    border-left: 3px solid var(--cyber-magenta);
-    font-size: 0.8rem;
-    pointer-events: none;
-    color: #fff;
-}
+    <script src="app.js"></script>
+</body>
+</html>
