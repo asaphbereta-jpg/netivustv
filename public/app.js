@@ -1,7 +1,7 @@
 const API_URL = window.location.origin;
 let currentFocusArea = 'login'; // login, sidebar, search, grid, player
 let currentType = 'canais';
-let bancoDeDadosLocal = []; // Salva a categoria atual inteira para pesquisa instantânea
+let bancoDeDadosLocal = []; 
 let playerMpegTs = null;
 
 // Elementos da Interface
@@ -14,13 +14,12 @@ const videoPlayer = document.getElementById('video-player');
 const searchInput = document.getElementById('search-input');
 const m3uInput = document.getElementById('m3u-input');
 
-// Inicializa o Aplicativo
 document.addEventListener('DOMContentLoaded', () => {
     renderizarListasSalvas();
-    m3uInput.focus();
+    document.getElementById('btn-connect-local').focus();
 });
 
-// 1. GERENCIAMENTO DE HISTÓRICO DE LISTAS
+// 1. HISTÓRICO DE LISTAS WEB
 function salvarListaNoHistorico(url) {
     let listas = JSON.parse(localStorage.getItem('netivus_listas')) || [];
     if (!listas.includes(url)) {
@@ -36,7 +35,7 @@ function renderizarListasSalvas() {
     container.innerHTML = '';
 
     if (listas.length === 0) {
-        container.innerHTML = '<p style="color: #4a5568; font-size: 0.8rem;">NENHUM TERMINAL SALVO.</p>';
+        container.innerHTML = '<p style="color: #313d54; font-size: 0.8rem;">NENHUM TERMINAL WEB SALVO.</p>';
         return;
     }
 
@@ -44,35 +43,41 @@ function renderizarListasSalvas() {
         const btn = document.createElement('button');
         btn.classList.add('list-item-btn');
         btn.setAttribute('tabindex', '0');
-        btn.innerText = `[M3U #${index + 1}] ${url}`;
+        btn.innerText = `[WEB #${index + 1}] ${url}`;
         btn.addEventListener('click', () => conectarListaIPTV(url));
         container.appendChild(btn);
     });
 }
 
-// 2. CONEXÃO COM O SERVIDOR (RENDER) E ACIONAMENTO DO LOADER
-document.getElementById('btn-connect').addEventListener('click', () => {
+// 2. FUNÇÕES DE CONEXÃO DOS BOTÕES
+// Ação do Botão Novo: Conectar listas locais (list1.txt a list10.txt)
+document.getElementById('btn-connect-local').addEventListener('click', () => {
+    conectarListaIPTV('local');
+});
+
+// Ação do Botão Web Antigo
+document.getElementById('btn-connect-web').addEventListener('click', () => {
     const url = m3uInput.value;
-    if (!url) return alert('Insira uma URL válida!');
+    if (!url) return alert('Insira uma URL válida para conectar via Web!');
     conectarListaIPTV(url);
 });
 
-async function conectarListaIPTV(url) {
-    // Muda para a tela de Loader imediatamente
+async function conectarListaIPTV(urlAlvo) {
     loginScreen.classList.remove('active');
     loaderScreen.classList.add('active');
     currentFocusArea = 'loader';
 
     try {
-        const res = await fetch(`${API_URL}/api/carregar?url=${encodeURIComponent(url)}`);
-        if (!res.ok) throw new Error("Erro no processamento do servidor");
+        const res = await fetch(`${API_URL}/api/carregar?url=${encodeURIComponent(urlAlvo)}`);
+        if (!res.ok) throw new Error("Erro no servidor");
 
         const data = await res.json();
 
         if (data.success) {
-            salvarListaNoHistorico(url);
+            if (urlAlvo !== 'local') {
+                salvarListaNoHistorico(urlAlvo);
+            }
             
-            // Entra na Interface Principal
             loaderScreen.classList.remove('active');
             mainScreen.classList.add('active');
             currentFocusArea = 'sidebar';
@@ -80,7 +85,7 @@ async function conectarListaIPTV(url) {
             
             carregarConteudo('canais');
         } else {
-            alert('Falha ao processar arquivo M3U.');
+            alert('Falha ao processar a matriz de arquivos.');
             voltarParaLogin();
         }
     } catch (err) {
@@ -94,7 +99,7 @@ function voltarParaLogin() {
     mainScreen.classList.remove('active');
     loginScreen.classList.add('active');
     currentFocusArea = 'login';
-    m3uInput.focus();
+    document.getElementById('btn-connect-local').focus();
 }
 
 document.getElementById('btn-disconnect').addEventListener('click', () => {
@@ -105,12 +110,11 @@ document.getElementById('btn-disconnect').addEventListener('click', () => {
 async function carregarConteudo(tipo) {
     gridConteudo.innerHTML = '<p style="color: var(--cyber-cyan)">> EXPANDINDO DADOS DA CATEGORIA...</p>';
     currentType = tipo;
-    searchInput.value = ''; // Limpa a pesquisa ao mudar de aba
+    searchInput.value = ''; 
 
     try {
         const res = await fetch(`${API_URL}/api/conteudo?tipo=${tipo}`);
         bancoDeDadosLocal = await res.json();
-        
         renderizarGrid(bancoDeDadosLocal);
     } catch (e) {
         gridConteudo.innerHTML = '<p style="color: var(--cyber-magenta)">> ERRO NA EXTRAÇÃO DOS CANAIS.</p>';
@@ -125,7 +129,6 @@ function renderizarGrid(listaItens) {
         return;
     }
 
-    // Carrega até 400 itens para não pesar o processamento da TV Box
     const limitados = listaItens.slice(0, 400);
 
     limitados.forEach((item) => {
@@ -141,7 +144,7 @@ function renderizarGrid(listaItens) {
     });
 }
 
-// 4. SISTEMA DE FILTRO DA BARRA DE PESQUISA
+// 4. PESQUISA
 searchInput.addEventListener('input', (e) => {
     const termo = e.target.value.toLowerCase().trim();
     if (!termo) {
@@ -152,13 +155,12 @@ searchInput.addEventListener('input', (e) => {
     renderizarGrid(filtrados);
 });
 
-// 5. PLAYER REVOLUCIONÁRIO: SUPORTE COMPLETO A CANAIS .TS E .M3U8
+// 5. PLAYER MULTI-FORMATO (.TS E .M3U8)
 function abrirPlayer(streamUrl) {
     mainScreen.classList.remove('active');
     playerScreen.classList.add('active');
     currentFocusArea = 'player';
 
-    // Se for um link de canal .ts ou contiver /ts/
     if (streamUrl.includes('.ts') || streamUrl.includes('type=ts') || streamUrl.includes(':ts')) {
         if (mpegts.getFeatureList().supportedTypes.live) {
             playerMpegTs = mpegts.createPlayer({
@@ -171,14 +173,12 @@ function abrirPlayer(streamUrl) {
             playerMpegTs.play();
         }
     } 
-    // Se for lista padrão .m3u8 (HLS)
     else if (Hls.isSupported()) {
         playerMpegTs = new Hls();
         playerMpegTs.loadSource(streamUrl);
         playerMpegTs.attachMedia(videoPlayer);
         playerMpegTs.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
     } 
-    // Suporte nativo fallback (Ex: Apple / Androids específicos)
     else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
         videoPlayer.src = streamUrl;
         videoPlayer.play();
@@ -187,8 +187,8 @@ function abrirPlayer(streamUrl) {
 
 function fecharPlayer() {
     if (playerMpegTs) {
-        if (typeof playerMpegTs.destroy === 'function') playerMpegTs.destroy(); // Se for mpegts
-        else if (typeof playerMpegTs.detachMedia === 'function') playerMpegTs.detachMedia(); // Se for Hls
+        if (typeof playerMpegTs.destroy === 'function') playerMpegTs.destroy();
+        else if (typeof playerMpegTs.detachMedia === 'function') playerMpegTs.detachMedia();
         playerMpegTs = null;
     }
     videoPlayer.pause();
@@ -202,7 +202,7 @@ function fecharPlayer() {
     if (primeiroCard) primeiroCard.focus();
 }
 
-// 6. EVENTOS DE TECLADO / CONTROLE REMOTO DA TV BOX
+// 6. EVENTOS DE TECLADO / CONTROLE REMOTO
 window.addEventListener('keydown', (e) => {
     const active = document.activeElement;
 
@@ -214,7 +214,6 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
-    // Atalhos do Grid / Sidebar / Pesquisa
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         if (currentFocusArea === 'sidebar') {
             const items = Array.from(document.querySelectorAll('.menu-item'));
