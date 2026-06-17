@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
@@ -51,46 +52,67 @@ function parseM3U(data, banco) {
     }
 }
 
-// Rota Inteligente que detecta o conteúdo automaticamente
+// Rota Inteligente: Lê os arquivos locais do list1 ao list10 ou baixa links externos
 app.get('/api/carregar', async (req, res) => {
-    const urlAlvo = req.query.url;
-    if (!urlAlvo) return res.status(400).json({ error: 'A URL do arquivo é obrigatória.' });
-
+    let urlAlvo = req.query.url;
     let novoBanco = { canais: [], filmes: [], series: [] };
 
     try {
-        console.log(`> Baixando matriz de dados: ${urlAlvo}`);
-        const response = await axios.get(urlAlvo, { timeout: 20000 });
-        const dadosBrutos = response.data;
+        // SE O USUÁRIO DIGITAR "local" OU DEIXAR EM BRANCO, ATIVA A MULTI-MATRIZ LOCAL
+        if (!urlAlvo || urlAlvo.toLowerCase() === 'local') {
+            console.log("=> Iniciando varredura da Multi-Matriz Local (list1.txt ate list10.txt)...");
+            let arquivosEncontrados = 0;
 
-        // VERIFICAÇÃO INTELIGENTE: O conteúdo tem marcações de IPTV?
-        if (dadosBrutos.includes('#EXTM3U') || dadosBrutos.includes('#EXTINF:')) {
-            console.log("=> Sucesso: Conteúdo IPTV/M3U válido detectado (mesmo em arquivo .txt)!");
-            parseM3U(dadosBrutos, novoBanco);
-        } 
-        // CASO SEJA UM TXT INDEX (Contendo apenas links HTTP para outras listas)
-        else {
-            console.log("=> Detectado arquivo index de texto. Buscando links internos...");
-            const linhas = dadosBrutos.split('\n');
-            const linksInternos = linhas.map(l => l.trim()).filter(l => l.startsWith('http'));
+            // Loop de 1 a 10 para tentar ler cada arquivo txt
+            for (let i = 1; i <= 10; i++) {
+                const nomeArquivo = `list${i}.txt`;
+                const caminhoLocal = path.join(__dirname, nomeArquivo);
 
-            for (let subUrl of linksInternos) {
-                try {
-                    console.log(`   -> Baixando sub-lista: ${subUrl}`);
-                    const subRes = await axios.get(subUrl, { timeout: 10000 });
-                    if (subRes.data.includes('#EXTM3U') || subRes.data.includes('#EXTINF:')) {
-                        parseM3U(subRes.data, novoBanco);
+                if (fs.existsSync(caminhoLocal)) {
+                    console.log(`   -> Lendo e processando: ${nomeArquivo}`);
+                    const dadosBrutos = fs.readFileSync(caminhoLocal, 'utf-8');
+                    
+                    if (dadosBrutos.includes('#EXTM3U') || dadosBrutos.includes('#EXTINF:')) {
+                        parseM3U(dadosBrutos, novoBanco);
+                        arquivosEncontrados++;
                     }
-                } catch (e) {
-                    console.error(`   [AVISO] Falha ao ler sub-link: ${subUrl}`);
+                }
+            }
+
+            if (arquivosEncontrados === 0) {
+                return res.status(400).json({ error: 'Nenhum arquivo list1.txt ate list10.txt foi encontrado na raiz.' });
+            }
+        } 
+        // CASO CONTRÁRIO, SE O USUÁRIO PASSAR UMA URL DE FORA, ELE BAIXA DA INTERNET
+        else {
+            console.log(`> Baixando matriz externa: ${urlAlvo}`);
+            const response = await axios.get(urlAlvo, { timeout: 20000 });
+            const dadosExternos = response.data;
+
+            if (dadosExternos.includes('#EXTM3U') || dadosExternos.includes('#EXTINF:')) {
+                parseM3U(dadosExternos, novoBanco);
+            } else {
+                // Se for um txt de index externo com links
+                const linhas = dadosExternos.split('\n');
+                const linksInternos = linhas.map(l => l.trim()).filter(l => l.startsWith('http'));
+
+                for (let subUrl of linksInternos) {
+                    try {
+                        const subRes = await axios.get(subUrl, { timeout: 10000 });
+                        if (subRes.data.includes('#EXTM3U') || subRes.data.includes('#EXTINF:')) {
+                            parseM3U(subRes.data, novoBanco);
+                        }
+                    } catch (e) {
+                        console.error(`   [AVISO] Falha ao ler sub-link: ${subUrl}`);
+                    }
                 }
             }
         }
 
-        // Atualiza a memória global
+        // Alimenta a memória global com os dados unidos
         listaProcessada = novoBanco;
 
-        console.log(`=> Matriz Sincronizada! Canais: ${listaProcessada.canais.length} | Filmes: ${listaProcessada.filmes.length} | Séries: ${listaProcessada.series.length}`);
+        console.log(`=> Matriz Sincronizada! Total Unificado -> Canais: ${listaProcessada.canais.length} | Filmes: ${listaProcessada.filmes.length} | Séries: ${listaProcessada.series.length}`);
 
         res.json({ 
             success: true, 
@@ -107,10 +129,11 @@ app.get('/api/carregar', async (req, res) => {
     }
 });
 
+// Rota para o Front-end consumir os dados filtrados
 app.get('/api/conteudo', (req, res) => {
     const tipo = req.query.tipo;
     res.json(listaProcessada[tipo] || []);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 NETIVUS TV MULTI-PARSER online na porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 NETIVUS TV MULTI-MATRIX (1-10) online na porta ${PORT}`));
