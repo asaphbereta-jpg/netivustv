@@ -1,0 +1,10 @@
+{
+  "name": "netivus-tv",
+  "version": "1.0.0",
+  "main": "server.js",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "axios": "^1.7.2"
+  }
+}
