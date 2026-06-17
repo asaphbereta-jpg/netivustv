@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netivus TV // Cyber Streaming</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+
+    <!-- Tela de Login / Inserção de Lista -->
+    <div id="login-screen" class="screen active">
+        <div class="cyber-box">
+            <h1 class="neon-text">NETIVUS<span>TV</span></h1>
+            <p class="system-status">> SYSTEM STATUS: ONLINE</p>
+            <input type="text" id="m3u-input" placeholder="INSIRA SUA URL M3U AQUI..." value="">
+            <button id="btn-connect" class="cyber-btn">CONECTAR SISTEMA</button>
+        </div>
+    </div>
+
+    <!-- Interface Principal da TV Box -->
+    <div id="main-screen" class="screen">
+        <!-- Sidebar Cyberpunk -->
+        <div class="sidebar">
+            <div class="logo-area">NETIVUS</div>
+            <div class="menu-items">
+                <div class="menu-item active" data-type="canais" tabindex="0">CANAIS TV</div>
+                <div class="menu-item" data-type="filmes" tabindex="0">FILMES</div>
+                <div class="menu-item" data-type="series" tabindex="0">SÉRIES</div>
+            </div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div class="main-content">
+            <div id="category-title" class="section-title">CANAIS DE TV</div>
+            <div id="grid-conteudo" class="grid-container">
+                <!-- Injetado via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Player de Vídeo em Tela Cheia -->
+    <div id="player-screen" class="screen">
+        <video id="video-player" controls></video>
+        <div class="player-back-tip">Pressione "Voltar" ou "ESC" para sair</div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
