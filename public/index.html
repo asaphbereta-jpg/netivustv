@@ -13,13 +13,17 @@
     <div id="login-screen" class="screen active">
         <div class="cyber-box">
             <h1 class="glitch-text" data-text="NETIVUS TV">NETIVUS<span>TV</span></h1>
-            <p class="system-status">> COGNITIVE INTERFACE ONLINE // INSERT M3U MATRIX</p>
+            <p class="system-status">> COGNITIVE INTERFACE ONLINE // SELECT ACCESS METHOD</p>
             
+            <button id="btn-connect-local" class="cyber-btn local-btn" tabindex="0">CONECTAR LISTA (LOCAL TXT)</button>
+            
+            <div class="separator">// OU COLOGUE UMA URL EXTERNA //</div>
+
             <input type="text" id="m3u-input" placeholder="URL DA LISTA M3U (HTTP://...)" tabindex="0">
-            <button id="btn-connect" class="cyber-btn" tabindex="0">CONECTAR FLUXO</button>
+            <button id="btn-connect-web" class="cyber-btn web-btn" tabindex="0">CONECTAR FLUXO WEB</button>
 
             <div class="saved-lists-container">
-                <h3>📂 TERMINAIS DE MEMÓRIA (LISTAS SALVAS)</h3>
+                <h3>📂 TERMINAIS DE MEMÓRIA (LINKS SALVOS)</h3>
                 <div id="saved-lists" class="saved-lists-grid">
                     </div>
             </div>
