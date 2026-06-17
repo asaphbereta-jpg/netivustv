@@ -3,47 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Netivus TV // Cyber Streaming</title>
+    <title>NETIVUS TV // CYBER STREAMING MATRIX</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.min.js"></script>
 </head>
 <body>
 
-    <!-- Tela de Login / Inserção de Lista -->
     <div id="login-screen" class="screen active">
         <div class="cyber-box">
-            <h1 class="neon-text">NETIVUS<span>TV</span></h1>
-            <p class="system-status">> SYSTEM STATUS: ONLINE</p>
-            <input type="text" id="m3u-input" placeholder="INSIRA SUA URL M3U AQUI..." value="">
-            <button id="btn-connect" class="cyber-btn">CONECTAR SISTEMA</button>
+            <h1 class="glitch-text" data-text="NETIVUS TV">NETIVUS<span>TV</span></h1>
+            <p class="system-status">> COGNITIVE INTERFACE ONLINE // INSERT M3U MATRIX</p>
+            
+            <input type="text" id="m3u-input" placeholder="URL DA LISTA M3U (HTTP://...)" tabindex="0">
+            <button id="btn-connect" class="cyber-btn" tabindex="0">CONECTAR FLUXO</button>
+
+            <div class="saved-lists-container">
+                <h3>📂 TERMINAIS DE MEMÓRIA (LISTAS SALVAS)</h3>
+                <div id="saved-lists" class="saved-lists-grid">
+                    </div>
+            </div>
         </div>
     </div>
 
-    <!-- Interface Principal da TV Box -->
+    <div id="loader-screen" class="screen">
+        <div class="loader-box">
+            <div class="cyber-spinner"></div>
+            <h2 class="neon-text-cyan">> SINCRONIZANDO BANCO DE DADOS...</h2>
+            <p id="loader-status">BAIXANDO E SEPARANDO MATRIZ COMPLETA</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="main-screen" class="screen">
-        <!-- Sidebar Cyberpunk -->
         <div class="sidebar">
-            <div class="logo-area">NETIVUS</div>
+            <div class="logo-area">NETIVUS<span>TV</span></div>
             <div class="menu-items">
-                <div class="menu-item active" data-type="canais" tabindex="0">CANAIS TV</div>
-                <div class="menu-item" data-type="filmes" tabindex="0">FILMES</div>
-                <div class="menu-item" data-type="series" tabindex="0">SÉRIES</div>
+                <div class="menu-item active" data-type="canais" tabindex="0">📺 CANAIS TV</div>
+                <div class="menu-item" data-type="filmes" tabindex="0">🎬 FILMES</div>
+                <div class="menu-item" data-type="series" tabindex="0">🍿 SÉRIES</div>
+                <div class="menu-item" id="btn-disconnect" style="color: var(--cyber-magenta);" tabindex="0">🔌 DESCONECTAR</div>
             </div>
         </div>
 
-        <!-- Conteúdo Principal -->
         <div class="main-content">
+            <div class="search-box-container">
+                <span class="search-icon">> SEARCH_</span>
+                <input type="text" id="search-input" placeholder="DIGITE O NOME DO CANAL, FILME OU SÉRIE..." tabindex="0">
+            </div>
+
             <div id="category-title" class="section-title">CANAIS DE TV</div>
             <div id="grid-conteudo" class="grid-container">
-                <!-- Injetado via JS -->
-            </div>
+                </div>
         </div>
     </div>
 
-    <!-- Player de Vídeo em Tela Cheia -->
     <div id="player-screen" class="screen">
-        <video id="video-player" controls></video>
-        <div class="player-back-tip">Pressione "Voltar" ou "ESC" para sair</div>
+        <video id="video-player" autoplay playsinline></video>
+        <div class="player-back-tip">Pressione [VOLTAR] ou [ESC] para fechar o canal</div>
     </div>
 
     <script src="app.js"></script>
