@@ -15,26 +15,47 @@ document.getElementById('btn-connect').addEventListener('click', async () => {
     if (!url) return alert('Insira uma URL!');
     
     document.getElementById('btn-connect').innerText = "PROCESSANDO MATRIZ...";
+    document.getElementById('btn-connect').disabled = true;
     
     try {
+        // Envia para o back-end baixar e processar
         const res = await fetch(`${API_URL}/api/carregar?url=${encodeURIComponent(url)}`);
+        
+        if (!res.ok) {
+            throw new Error(`Erro no servidor: Status ${res.status}`);
+        }
+        
         const data = await res.json();
         
         if (data.success) {
+            // SÓ ENTRA AQUI SE O BACK-END JÁ TERMINOU DE PROCESSAR TUDO!
+            console.log("Lista carregada com sucesso:", data.counts);
             loginScreen.classList.remove('active');
             mainScreen.classList.add('active');
             currentFocusArea = 'sidebar';
-            document.querySelector('.menu-item').focus();
-            carregarConteudo('canais');
+            
+            // Aguarda um leve delay para renderizar a interface antes de puxar os canais
+            setTimeout(() => {
+                document.querySelector('.menu-item').focus();
+                carregarConteudo('canais');
+            }, 300);
+            
         } else {
-            alert('Erro ao processar lista.');
+            alert('O servidor não conseguiu processar esta lista M3U.');
+            resetBotaoLogin();
         }
     } catch (err) {
-        alert('Erro de conexão com o servidor back-end.');
-    } finally {
-        document.getElementById('btn-connect').innerText = "CONECTAR SISTEMA";
+        console.error(err);
+        alert('ERRO CRÍTICO: O servidor demorou muito para responder ou o link M3U é inválido/bloqueado.');
+        resetBotaoLogin();
     }
 });
+
+function resetBotaoLogin() {
+    const btn = document.getElementById('btn-connect');
+    btn.innerText = "CONECTAR SISTEMA";
+    btn.disabled = false;
+}
 
 // 2. BUSCAR CONTEÚDO DO BACK-END
 async function carregarConteudo(tipo) {
@@ -43,15 +64,20 @@ async function carregarConteudo(tipo) {
     
     try {
         const res = await fetch(`${API_URL}/api/conteudo?tipo=${tipo}`);
+        if (!res.ok) throw new Error("Erro ao buscar dados organizados");
+        
         const itens = await res.json();
         
         gridConteudo.innerHTML = '';
         if (itens.length === 0) {
-            gridConteudo.innerHTML = '<p>> NENHUM REGISTRO ENCONTRADO NESSA CATEGORIA.</p>';
+            gridConteudo.innerHTML = '<p style="color: #4a5568">> NENHUM REGISTRO ENCONTRADO NESSA CATEGORIA.</p>';
             return;
         }
 
-        itens.forEach((item, index) => {
+        // Limita a renderização inicial em 300 itens para a TV Box não travar o navegador
+        const limiteItens = itens.slice(0, 300);
+
+        limiteItens.forEach((item) => {
             const card = document.createElement('div');
             card.classList.add('media-card');
             card.setAttribute('tabindex', '0');
@@ -61,91 +87,14 @@ async function carregarConteudo(tipo) {
                 <p>${item.name}</p>
             `;
             
-            // Ao clicar/pressionar OK, abre o player
             card.addEventListener('click', () => abrirPlayer(item.url));
             gridConteudo.appendChild(card);
         });
+        
+        if (itens.length > 300) {
+            console.log(`Lista muito grande. Mostrando 300 de ${itens.length} para preservar a memória da TV Box.`);
+        }
     } catch (e) {
-        gridConteudo.innerHTML = '<p style="color: var(--cyber-magenta)">> ERRO CRÍTICO DE DOWNLOAD.</p>';
+        gridConteudo.innerHTML = '<p style="color: var(--cyber-magenta)">> ERRO CRÍTICO NA LEITURA DA MEMÓRIA.</p>';
     }
 }
-
-// Mudar de categoria na sidebar
-document.querySelectorAll('.menu-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-        document.querySelector('.menu-item.active').classList.remove('active');
-        e.target.classList.add('active');
-        document.getElementById('category-title').innerText = e.target.innerText;
-        carregarConteudo(e.target.getAttribute('data-type'));
-    });
-});
-
-// 3. PLAYER DE VÍDEO HLS
-function abrirPlayer(streamUrl) {
-    mainScreen.classList.remove('active');
-    playerScreen.classList.add('active');
-    currentFocusArea = 'player';
-    
-    if (Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(streamUrl);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-        videoPlayer.src = streamUrl;
-        videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-    }
-}
-
-function fecharPlayer() {
-    videoPlayer.pause();
-    videoPlayer.src = "";
-    playerScreen.classList.remove('active');
-    mainScreen.classList.add('active');
-    currentFocusArea = 'grid';
-    const primeiroCard = gridConteudo.querySelector('.media-card');
-    if (primeiroCard) primeiroCard.focus();
-}
-
-// 4. CONTROLE REMOTO POR TECLADO (D-PAD DA TV BOX)
-window.addEventListener('keydown', (e) => {
-    const active = document.activeElement;
-    
-    if (currentFocusArea === 'player') {
-        // Botão voltar ou ESC fecha o player
-        if (e.key === 'Escape' || e.key === 'Backspace') {
-            e.preventDefault();
-            fecharPlayer();
-        }
-        return;
-    }
-
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        if (currentFocusArea === 'sidebar') {
-            const items = Array.from(document.querySelectorAll('.menu-item'));
-            let idx = items.indexOf(active);
-            if (e.key === 'ArrowDown' && idx < items.length - 1) items[idx+1].focus();
-            if (e.key === 'ArrowUp' && idx > 0) items[idx-1].focus();
-        }
-    }
-    
-    if (e.key === 'ArrowRight' && currentFocusArea === 'sidebar') {
-        // Vai da Sidebar para o Grid de canais
-        const primeiroCard = gridConteudo.querySelector('.media-card');
-        if (primeiroCard) {
-            currentFocusArea = 'grid';
-            primeiroCard.focus();
-        }
-    }
-    
-    if (e.key === 'ArrowLeft' && currentFocusArea === 'grid') {
-        // Volta do Grid para a Sidebar
-        currentFocusArea = 'sidebar';
-        document.querySelector('.menu-item.active').focus();
-    }
-    
-    // Simula clique com a tecla Enter/OK da TV Box
-    if (e.key === 'Enter' && active) {
-        active.click();
-    }
-});
